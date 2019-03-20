@@ -2,6 +2,8 @@ import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.stmt.*;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 
@@ -74,10 +76,35 @@ public class FileWalker extends SimpleFileVisitor<Path> {
             @Override
             public void visit(TryStmt n, Object arg) {
                 List<Node> catchClauses =
-                        new ArrayList<>(n.getCatchClauses().stream().flatMap(x ->
-                                x.getChildNodes().stream()).collect(Collectors.toList()));
+                        new ArrayList<>(n.getCatchClauses().stream().flatMap(x -> x.getChildNodes().stream()).collect(Collectors.toList()));
                 catchClauses.add(n.getTryBlock());
                 isEmptyBlock(catchClauses.toArray(new Node[catchClauses.size()]));
+                super.visit(n, arg);
+            }
+
+            @Override
+            public void visit(FieldDeclaration n, Object arg) {
+                if (n.isStatic() && n.isFinal()) {
+                    n.getVariables().forEach(v -> {
+                        String varName = v.getNameAsString();
+                        if (!varName.equals(varName.toUpperCase())) {
+                            areWarningsDetected = true;
+                            System.out.println(String.format("[WARNING] Static final variable %s must be in " +
+                                    "uppercase" + ".", varName));
+                        }
+                    });
+                }
+                super.visit(n, arg);
+            }
+
+            @Override
+            public void visit(VariableDeclarator n, Object arg) {
+                String varName = n.getNameAsString();
+                if (varName.contains("_")) {
+                    areWarningsDetected = true;
+                    System.out.println(String.format("[WARNING] Variable name %s should be in lower camel case, " +
+                            "detected at position: %s", varName, n.getRange().get()));
+                }
                 super.visit(n, arg);
             }
         }.visit(compilationUnit, null);
@@ -99,7 +126,7 @@ public class FileWalker extends SimpleFileVisitor<Path> {
         for (Node arg : args) {
             if (arg != null && arg.getChildNodes().stream().allMatch(x -> x instanceof EmptyStmt)) {
                 areWarningsDetected = true;
-                System.out.println(String.format("[WARNING] Empty block at position: %s", arg.getRange()));
+                System.out.println(String.format("[WARNING] Empty block at position: %s", arg.getRange().get()));
             }
         }
     }

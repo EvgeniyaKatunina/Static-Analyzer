@@ -70,6 +70,11 @@ public class FileWalker extends SimpleFileVisitor<Path> {
             @Override
             public void visit(IfStmt n, Object arg) {
                 isEmptyBlock(n.getThenStmt(), n.getElseStmt().orElse(null));
+                n.getElseStmt().filter(elseStmt -> n.getThenStmt().equals(elseStmt)).ifPresent(elseStmt -> {
+                    areWarningsDetected = true;
+                    System.out.println(String.format("[WARNING] 'Else' branch at %s is equal to 'then' branch.",
+                            elseStmt.getRange().get()));
+                });
                 super.visit(n, arg);
             }
 
@@ -89,7 +94,7 @@ public class FileWalker extends SimpleFileVisitor<Path> {
                         String varName = v.getNameAsString();
                         if (!varName.equals(varName.toUpperCase())) {
                             areWarningsDetected = true;
-                            System.out.println(String.format("[WARNING] Static final variable %s must be in " +
+                            System.out.println(String.format("[WARNING] Static final variable '%s' must be in " +
                                     "uppercase" + ".", varName));
                         }
                     });
@@ -102,7 +107,7 @@ public class FileWalker extends SimpleFileVisitor<Path> {
                 String varName = n.getNameAsString();
                 if (varName.contains("_")) {
                     areWarningsDetected = true;
-                    System.out.println(String.format("[WARNING] Variable name %s should be in lower camel case, " +
+                    System.out.println(String.format("[WARNING] Variable name '%s' should be in lower camel case, " +
                             "detected at position: %s", varName, n.getRange().get()));
                 }
                 super.visit(n, arg);
